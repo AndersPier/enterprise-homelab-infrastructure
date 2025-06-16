@@ -1,0 +1,218 @@
+# Required DNS Records for Enterprise Homelab Infrastructure
+# Configure these records in your domain's DNS management panel
+
+# =====================================
+# EXTERNAL DNS RECORDS (Public DNS)
+# These point to your public IP address
+# =====================================
+
+# Main domain
+yourdomain.com                A    YOUR_PUBLIC_IP
+
+# Wildcard domains for different environments
+*.dev.yourdomain.com         A    YOUR_PUBLIC_IP
+*.staging.yourdomain.com     A    YOUR_PUBLIC_IP  
+*.prod.yourdomain.com        A    YOUR_PUBLIC_IP
+
+# Management interfaces (optional - can be VPN-only)
+traefik.yourdomain.com       A    YOUR_PUBLIC_IP
+monitoring.yourdomain.com    A    YOUR_PUBLIC_IP
+adguard.yourdomain.com       A    YOUR_PUBLIC_IP
+
+# =====================================
+# IPv6 RECORDS (if using IPv6)
+# =====================================
+
+yourdomain.com                AAAA YOUR_PUBLIC_IPv6
+*.dev.yourdomain.com         AAAA YOUR_PUBLIC_IPv6
+*.staging.yourdomain.com     AAAA YOUR_PUBLIC_IPv6
+*.prod.yourdomain.com        AAAA YOUR_PUBLIC_IPv6
+
+# =====================================
+# ACME CHALLENGE RECORDS
+# These are managed automatically by Traefik/Let's Encrypt
+# DO NOT create these manually - they are for reference only
+# =====================================
+
+# _acme-challenge.yourdomain.com     TXT  (automatically managed)
+# _acme-challenge.dev.yourdomain.com TXT  (automatically managed)
+
+# =====================================
+# INTERNAL DNS RECORDS (AdGuard/Local DNS)
+# Configure these in AdGuard Home or local DNS server
+# =====================================
+
+# Infrastructure services
+proxmox.lab.local            A    192.168.1.10  # or 192.168.10.10 for VLAN
+qnap.lab.local               A    192.168.1.60  # or 192.168.60.10 for VLAN
+adguard.lab.local            A    192.168.1.20  # or 192.168.20.10 for VLAN
+adguard-primary.lab.local    A    192.168.1.20  # or 192.168.20.10 for VLAN
+adguard-secondary.lab.local  A    192.168.1.21  # or 192.168.20.11 for VLAN
+monitoring.lab.local         A    192.168.1.26  # or 192.168.20.21 for VLAN
+traefik.lab.local           A    192.168.1.25  # or 192.168.20.20 for VLAN
+
+# Dokploy instances
+dokploy-dev.lab.local       A    192.168.1.30  # or 192.168.30.10 for VLAN
+dokploy-staging.lab.local   A    192.168.1.40  # or 192.168.40.10 for VLAN
+dokploy-prod.lab.local      A    192.168.1.50  # or 192.168.50.10 for VLAN
+
+# Network infrastructure
+gateway.lab.local           A    192.168.1.1
+ucg-ultra.lab.local         A    192.168.1.1
+switch.lab.local            A    192.168.1.2    # if managed switch
+
+# =====================================
+# REVERSE DNS (PTR RECORDS)
+# Configure these if using local reverse DNS
+# =====================================
+
+# Single network setup
+10.1.168.192.in-addr.arpa.   PTR  proxmox.lab.local.
+20.1.168.192.in-addr.arpa.   PTR  adguard-primary.lab.local.
+21.1.168.192.in-addr.arpa.   PTR  adguard-secondary.lab.local.
+30.1.168.192.in-addr.arpa.   PTR  dokploy-dev.lab.local.
+40.1.168.192.in-addr.arpa.   PTR  dokploy-staging.lab.local.
+50.1.168.192.in-addr.arpa.   PTR  dokploy-prod.lab.local.
+60.1.168.192.in-addr.arpa.   PTR  qnap.lab.local.
+
+# VLAN setup PTR records (if using VLANs)
+# 10.10.168.192.in-addr.arpa.  PTR  proxmox.lab.local.
+# 10.20.168.192.in-addr.arpa.  PTR  adguard-primary.lab.local.
+# ... (adjust for VLAN IPs)
+
+# =====================================
+# MX RECORDS (if hosting email)
+# Only configure if you plan to host email services
+# =====================================
+
+# yourdomain.com               MX   10 mail.yourdomain.com.
+# mail.yourdomain.com          A    YOUR_PUBLIC_IP
+
+# =====================================
+# SPF, DKIM, DMARC RECORDS (if hosting email)
+# =====================================
+
+# yourdomain.com               TXT  "v=spf1 a mx ~all"
+# _dmarc.yourdomain.com        TXT  "v=DMARC1; p=quarantine; rua=mailto:dmarc@yourdomain.com"
+
+# =====================================
+# CAA RECORDS (Certificate Authority Authorization)
+# Restrict which CAs can issue certificates for your domain
+# =====================================
+
+yourdomain.com               CAA  0 issue "letsencrypt.org"
+yourdomain.com               CAA  0 issuewild "letsencrypt.org"
+yourdomain.com               CAA  0 iodef "mailto:admin@yourdomain.com"
+
+# =====================================
+# SRV RECORDS (Service Discovery)
+# Optional - for service discovery if needed
+# =====================================
+
+# _http._tcp.yourdomain.com    SRV  10 5 80  traefik.yourdomain.com.
+# _https._tcp.yourdomain.com   SRV  10 5 443 traefik.yourdomain.com.
+
+# =====================================
+# EXTERNAL SERVICE INTEGRATIONS
+# Records for external services (CDN, monitoring, etc.)
+# =====================================
+
+# For Cloudflare proxy (if using Cloudflare)
+# Set these records to "Proxied" in Cloudflare dashboard
+# yourdomain.com               A    YOUR_PUBLIC_IP (proxied)
+# www.yourdomain.com           CNAME yourdomain.com (proxied)
+
+# For external monitoring services
+# status.yourdomain.com        CNAME status.example-monitoring-service.com
+
+# =====================================
+# CONFIGURATION INSTRUCTIONS
+# =====================================
+
+# 1. REPLACE PLACEHOLDERS:
+#    - Replace "yourdomain.com" with your actual domain
+#    - Replace "YOUR_PUBLIC_IP" with your actual public IP address
+#    - Adjust internal IPs based on your network configuration
+
+# 2. DNS PROVIDER SETUP:
+#    - Login to your DNS provider's control panel
+#    - Create all external DNS records listed above
+#    - Ensure TTL is set to 300 seconds (5 minutes) for faster propagation
+
+# 3. INTERNAL DNS SETUP:
+#    - Configure AdGuard Home with internal DNS records
+#    - Set up DNS rewrites in AdGuard configuration
+#    - Test internal name resolution
+
+# 4. VERIFICATION:
+#    - Use 'dig' or 'nslookup' to verify DNS records
+#    - Test both internal and external resolution
+#    - Verify ACME challenge domain accessibility
+
+# =====================================
+# TESTING COMMANDS
+# =====================================
+
+# Test external DNS resolution:
+# dig @8.8.8.8 yourdomain.com
+# dig @8.8.8.8 test.dev.yourdomain.com
+# nslookup traefik.yourdomain.com
+
+# Test internal DNS resolution:
+# dig @192.168.1.20 proxmox.lab.local
+# nslookup dokploy-prod.lab.local 192.168.1.20
+
+# Test ACME challenge domain:
+# dig @8.8.8.8 _acme-challenge.yourdomain.com TXT
+
+# =====================================
+# SECURITY CONSIDERATIONS
+# =====================================
+
+# 1. Limit exposure of management interfaces:
+#    - Consider VPN-only access for management domains
+#    - Use non-standard ports for SSH and management
+
+# 2. Monitor DNS queries:
+#    - Enable query logging in AdGuard Home
+#    - Monitor for suspicious DNS requests
+
+# 3. Implement DNS security:
+#    - Enable DNSSEC if supported by your provider
+#    - Use DNS-over-HTTPS (DoH) or DNS-over-TLS (DoT)
+
+# 4. Regular audits:
+#    - Review DNS records quarterly
+#    - Remove unused or old records
+#    - Update IP addresses when infrastructure changes
+
+# =====================================
+# TROUBLESHOOTING
+# =====================================
+
+# Common issues and solutions:
+
+# 1. DNS propagation delays:
+#    - Wait up to 48 hours for global propagation
+#    - Use online tools to check propagation status
+#    - Lower TTL values before making changes
+
+# 2. ACME challenge failures:
+#    - Ensure _acme-challenge subdomain is not blocked
+#    - Check DNS API permissions for automatic updates
+#    - Verify rate limits are not exceeded
+
+# 3. Wildcard certificate issues:
+#    - Wildcard certificates require DNS-01 challenge
+#    - Ensure DNS API credentials are correctly configured
+#    - Check for conflicting DNS records
+
+# 4. Internal resolution problems:
+#    - Verify AdGuard Home is running
+#    - Check DNS server configuration in DHCP/router
+#    - Test with different DNS servers
+
+# For additional help, see:
+# - docs/troubleshooting.md
+# - docs/implementation-guide.md
+# - DNS provider documentation
