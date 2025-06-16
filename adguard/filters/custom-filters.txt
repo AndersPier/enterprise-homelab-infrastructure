@@ -1,0 +1,269 @@
+# Custom AdGuard Home Filter Lists
+# Additional filter lists for enhanced homelab security and functionality
+
+# ==============================================
+# HOMELAB SPECIFIC FILTERS
+# ==============================================
+
+# Block known botnet and malware C&C servers
+||botnet-tracker.net^
+||malware-c2-server.com^
+||suspicious-domain.ru^
+||crypto-miner.evil^
+
+# Block cryptocurrency mining
+||coin-hive.com^
+||coinhive.com^
+||crypto-loot.com^
+||cryptoloot.com^
+||minero.cc^
+||webminer.info^
+||authedmine.com^
+||cnhv.co^
+||gridcash.net^
+||jsecoin.com^
+||minecrunch.co^
+||minemytraffic.com^
+||minero.cc^
+||mining.best^
+||papoto.com^
+||projectpoi.com^
+||rocks.io^
+||static-cnt.bid^
+||webmining.co^
+||worker-js.info^
+
+# Block known IoT malware and compromised devices
+||mirai-botnet.com^
+||iot-malware.net^
+||compromised-camera.local^
+
+# Block telemetry and analytics that might affect homelab performance
+||google-analytics.com^
+||googletagmanager.com^
+||facebook.com^$third-party
+||doubleclick.net^
+||adsystem.google.com^
+
+# ==============================================
+# DEVELOPMENT ENVIRONMENT BLOCKS
+# ==============================================
+
+# Block distracting websites during work hours (optional)
+# ||reddit.com^
+# ||youtube.com^
+# ||facebook.com^
+# ||twitter.com^
+# ||instagram.com^
+# ||tiktok.com^
+
+# ==============================================
+# SECURITY FILTERS
+# ==============================================
+
+# Block known phishing domains
+||phishing-site.com^
+||fake-bank.net^
+||scam-crypto.org^
+
+# Block suspicious file hosting
+||suspicious-downloads.com^
+||malware-hosting.net^
+||virus-share.org^
+
+# Block known command and control servers
+||c2-server.evil^
+||command-control.bad^
+||botnet-master.com^
+
+# ==============================================
+# PRIVACY FILTERS
+# ==============================================
+
+# Additional tracking domains
+||tracking-pixel.com^
+||analytics-collector.net^
+||user-behavior.tracker^
+
+# Block fingerprinting services
+||fingerprintjs.com^
+||device-fingerprint.net^
+||browser-detection.com^
+
+# ==============================================
+# PERFORMANCE FILTERS
+# ==============================================
+
+# Block heavy ad networks that might slow down browsing
+||heavy-ads.network^
+||resource-intensive.ads^
+||slow-loading.tracker^
+
+# ==============================================
+# HOMELAB SPECIFIC RULES
+# ==============================================
+
+# Allow critical infrastructure domains
+@@||docker.io^$important
+@@||github.com^$important
+@@||githubusercontent.com^$important
+@@||registry-1.docker.io^$important
+@@||auth.docker.io^$important
+@@||registry.hub.docker.com^$important
+@@||production.cloudflare.docker.com^$important
+
+# Allow container registries
+@@||quay.io^$important
+@@||gcr.io^$important
+@@||ghcr.io^$important
+@@||registry.gitlab.com^$important
+
+# Allow package managers
+@@||npmjs.org^$important
+@@||npmjs.com^$important
+@@||pypi.org^$important
+@@||packagist.org^$important
+@@||crates.io^$important
+@@||rubygems.org^$important
+
+# Allow CDNs used by development tools
+@@||cdn.jsdelivr.net^$important
+@@||unpkg.com^$important
+@@||cdnjs.cloudflare.com^$important
+
+# Allow Linux repositories
+@@||debian.org^$important
+@@||ubuntu.com^$important
+@@||security.ubuntu.com^$important
+@@||archive.ubuntu.com^$important
+@@||alpinelinux.org^$important
+@@||dl-cdn.alpinelinux.org^$important
+
+# Allow certificate authorities
+@@||letsencrypt.org^$important
+@@||acme-v02.api.letsencrypt.org^$important
+@@||r3.o.lencr.org^$important
+@@||isrgrootx1.letsencrypt.org^$important
+
+# Allow cloud services
+@@||cloudflare.com^$important
+@@||amazonaws.com^$important
+@@||storage.googleapis.com^$important
+
+# Allow monitoring and observability
+@@||grafana.com^$important
+@@||prometheus.io^$important
+
+# ==============================================
+# CONDITIONAL BLOCKS (UNCOMMENT AS NEEDED)
+# ==============================================
+
+# Block social media entirely (uncomment if desired)
+# ||facebook.com^
+# ||fb.com^
+# ||instagram.com^
+# ||twitter.com^
+# ||x.com^
+# ||tiktok.com^
+# ||snapchat.com^
+# ||linkedin.com^
+
+# Block video streaming to save bandwidth (uncomment if needed)
+# ||youtube.com^
+# ||youtu.be^
+# ||netflix.com^
+# ||hulu.com^
+# ||disney.com^
+# ||primevideo.com^
+# ||twitch.tv^
+
+# Block gaming platforms (uncomment if desired)
+# ||steam.com^
+# ||epicgames.com^
+# ||origin.com^
+# ||battle.net^
+# ||xbox.com^
+# ||playstation.com^
+
+# Block news sites (uncomment for focus environments)
+# ||cnn.com^
+# ||bbc.com^
+# ||reddit.com^
+# ||news.ycombinator.com^
+
+# ==============================================
+# TIME-BASED BLOCKS (REQUIRE CUSTOM IMPLEMENTATION)
+# ==============================================
+
+# Note: AdGuard Home doesn't natively support time-based blocking
+# These would require custom scripts or firewall rules
+
+# Block entertainment sites during work hours (9 AM - 5 PM)
+# ||entertainment.com^$time=9:00-17:00
+
+# Block social media during focus time
+# ||facebook.com^$time=9:00-12:00,13:00-17:00
+
+# ==============================================
+# NETWORK-SPECIFIC RULES
+# ==============================================
+
+# Block certain sites only on production network
+# ||gaming.com^$network=192.168.50.0/24
+# ||entertainment.com^$network=192.168.50.0/24
+
+# Allow unrestricted access on development network
+# @@||blocked-site.com^$network=192.168.30.0/24
+
+# ==============================================
+# CUSTOM WHITELIST FOR FALSE POSITIVES
+# ==============================================
+
+# Common false positives that need to be whitelisted
+@@||github.io^$important
+@@||githubusercontent.com^$important
+@@||raw.githubusercontent.com^$important
+@@||codeload.github.com^$important
+
+# Microsoft services (often blocked by privacy filters)
+@@||microsoft.com^$important
+@@||microsoftonline.com^$important
+@@||office.com^$important
+@@||outlook.com^$important
+
+# Google services (if using Google Workspace)
+@@||google.com^$important
+@@||googleapis.com^$important
+@@||gstatic.com^$important
+
+# Common development tools
+@@||stackoverflow.com^$important
+@@||stackexchange.com^$important
+@@||developer.mozilla.org^$important
+
+# ==============================================
+# MALWARE AND THREAT INTELLIGENCE
+# ==============================================
+
+# Known malware domains (update regularly)
+||malware-domain-1.com^
+||malware-domain-2.net^
+||trojan-host.org^
+||ransomware-c2.evil^
+
+# Suspicious TLDs with high malware rates
+||*.tk^
+||*.ml^
+||*.ga^
+||*.cf^
+
+# ==============================================
+# NOTES
+# ==============================================
+
+# 1. Test rules carefully before implementing
+# 2. Monitor logs for false positives
+# 3. Update threat intelligence regularly
+# 4. Customize based on your specific needs
+# 5. Consider network-specific rules for different VLANs
+# 6. Backup this configuration before making changes
