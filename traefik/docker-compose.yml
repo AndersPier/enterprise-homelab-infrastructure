@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: infrastructure-traefik
+    restart: unless-stopped
+    
+    command:
+      # Static configuration via config file
+      - "--configFile=/etc/traefik/traefik.yml"
+      
+    ports:
+      - "80:80"     # HTTP entry point
+      - "443:443"   # HTTPS entry point  
+      - "8080:8080" # Traefik dashboard
+
+    environment:
+      # ==============================================
+      # DNS PROVIDER CREDENTIALS
+      # Choose your DNS provider and set appropriate variables
+      # ==============================================
+      
+      # CLOUDFLARE (most popular)
+      - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
+      - CLOUDFLARE_DNS_API_TOKEN=${CLOUDFLARE_DNS_API_TOKEN}
+      # Alternative: use Global API Key instead of token
+      # - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
+      
+      # DIGITALOCEAN  
+      # - DO_AUTH_TOKEN=${DO_AUTH_TOKEN}
+      
+      # ROUTE53 (AWS)
+      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # - AWS_REGION=${AWS_REGION}
+      
+      # NAMECHEAP
+      # - NAMECHEAP_API_USER=${NAMECHEAP_API_USER}
+      # - NAMECHEAP_API_KEY=${NAMECHEAP_API_KEY}
+      
+      # GOOGLE CLOUD DNS
+      # - GCE_PROJECT=${GCE_PROJECT}
+      # - GCE_SERVICE_ACCOUNT_FILE=/gcp-creds.json
+      
+      # OVH
+      # - OVH_ENDPOINT=${OVH_ENDPOINT}
+      # - OVH_APPLICATION_KEY=${OVH_APPLICATION_KEY}
+      # - OVH_APPLICATION_SECRET=${OVH_APPLICATION_SECRET}
+      # - OVH_CONSUMER_KEY=${OVH_CONSUMER_KEY}
+
+      # Domain configuration
+      - DOMAIN_NAME=${DOMAIN_NAME}
+
+    volumes:
+      # Configuration files
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      
+      # Certificate storage (persistent across restarts)
+      - ./certs:/etc/traefik/certs
+      
+      # Log storage
+      - ./logs:/var/log/traefik
+      
+      # Docker socket (for Docker provider)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      
+      # Optional: GCP service account file (if using Google Cloud DNS)
+      # - ./gcp-service-account.json:/gcp-creds.json:ro
+
+    networks:
+      - traefik-net
+
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      
+      # Dashboard router (accessible via traefik.yourdomain.com)
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN_NAME}`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt-prod"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      - "traefik.http.routers.dashboard.middlewares=auth"
+      
+      # Basic auth for dashboard (generate with: htpasswd -nb admin password)
+      # Default: admin/admin123 (change this!)
+      - "traefik.http.middlewares.auth.basicauth.users=admin:$$2y$$10$$DKOZJzJjfKJoLHMwXxEu.u8b7K6e7aF9WKq8XYKvLgzZ7YJTXr.yK"
+
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  traefik-net:
+    external: true
+
+# Create external network if it doesn't exist:
+# docker network create traefik-net
