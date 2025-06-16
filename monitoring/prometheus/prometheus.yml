@@ -1,0 +1,172 @@
+# Prometheus Configuration for Enterprise Homelab
+# Main configuration file for metrics collection and alerting
+
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'homelab'
+    replica: 'prometheus-01'
+
+# Rule files for alerting
+rule_files:
+  - "rules/*.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+
+  # Node Exporters across all infrastructure
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+        - 'localhost:9100'              # Monitoring host
+        - '192.168.1.10:9100'          # Proxmox host (adjust IP as needed)
+        - '192.168.1.20:9100'          # AdGuard primary (if node-exporter installed)
+        - '192.168.1.21:9100'          # AdGuard secondary (if node-exporter installed)
+        - '192.168.1.30:9100'          # Dokploy dev
+        - '192.168.1.40:9100'          # Dokploy staging
+        - '192.168.1.50:9100'          # Dokploy prod
+        - '192.168.1.60:9100'          # QNAP (if node-exporter installed)
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Container Metrics via cAdvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets:
+        - 'localhost:8080'              # Monitoring host cAdvisor
+        - '192.168.1.30:8080'          # Dokploy dev cAdvisor
+        - '192.168.1.40:8080'          # Dokploy staging cAdvisor
+        - '192.168.1.50:8080'          # Dokploy prod cAdvisor
+    scrape_interval: 15s
+
+  # Proxmox VE monitoring (requires Proxmox VE exporter or built-in metrics)
+  - job_name: 'proxmox'
+    static_configs:
+      - targets: ['192.168.1.10:8006']
+    metrics_path: /api2/prometheus/metrics
+    params:
+      format: ['prometheus']
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    # Note: Requires Proxmox monitoring user setup
+    # basic_auth:
+    #   username: 'monitoring@pve'
+    #   password: 'monitoring-password'
+
+  # Dokploy instances (if they expose metrics)
+  - job_name: 'dokploy'
+    static_configs:
+      - targets:
+        - '192.168.1.30:3000'          # Dokploy dev
+        - '192.168.1.40:3000'          # Dokploy staging
+        - '192.168.1.50:3000'          # Dokploy prod
+    metrics_path: /api/metrics
+    scrape_interval: 30s
+
+  # QNAP NAS (requires SNMP or custom exporter)
+  - job_name: 'qnap'
+    static_configs:
+      - targets: ['192.168.1.60:8080']
+    metrics_path: /api/v1/stats
+    scrape_interval: 60s
+
+  # Blackbox - HTTP/HTTPS Endpoint Monitoring
+  - job_name: 'blackbox-http'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        # Internal services
+        - http://dokploy-dev.lab.local
+        - http://dokploy-staging.lab.local
+        - http://dokploy-prod.lab.local
+        - https://adguard.lab.local
+        - http://monitoring.lab.local:3000
+        - https://qnap.lab.local
+        # External services (if exposing publicly)
+        - https://your-domain.com
+        - https://app.dev.your-domain.com
+        - https://app.staging.your-domain.com
+        - https://app.prod.your-domain.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # Blackbox - DNS Monitoring
+  - job_name: 'blackbox-dns'
+    metrics_path: /probe
+    params:
+      module: [dns_udp]
+    static_configs:
+      - targets:
+        - 192.168.1.20:53              # AdGuard primary
+        - 192.168.1.21:53              # AdGuard secondary
+        - 1.1.1.1:53                   # Cloudflare (upstream test)
+        - 8.8.8.8:53                   # Google (upstream test)
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # SNMP - UCG Ultra and Network Equipment
+  - job_name: 'snmp-ucg-ultra'
+    static_configs:
+      - targets:
+        - 192.168.1.1                  # UCG Ultra
+    metrics_path: /snmp
+    params:
+      module: [ubiquiti_unifi]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: snmp-exporter:9116
+
+  # Monitoring stack internal services
+  - job_name: 'monitoring-internal'
+    static_configs:
+      - targets:
+        - 'alertmanager:9093'
+        - 'grafana:3000'
+        - 'loki:3100'
+        - 'uptime-kuma:3001'
+        - 'speedtest-tracker:80'
+        - 'portainer:9000'
+    scrape_interval: 30s
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint"
+#     basic_auth:
+#       username: remote_write_user
+#       password: remote_write_password
+
+# Storage configuration
+storage:
+  tsdb:
+    retention_time: 90d
+    retention_size: 50GB
