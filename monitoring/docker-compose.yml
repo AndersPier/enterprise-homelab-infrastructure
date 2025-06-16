@@ -1,0 +1,302 @@
+# Complete Monitoring Stack for Enterprise Homelab Infrastructure
+# Deploy this on the monitoring LXC container (192.168.1.26 or configured monitoring IP)
+
+version: '3.8'
+
+services:
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=90d'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--web.external-url=http://monitoring.lab.local:9090'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    labels:
+      - "prometheus.enable=true"
+
+  # Grafana - Visualization
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=homelab123!
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_DEFAULT_THEME=dark
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/homelab-overview.json
+      - GF_FEATURE_TOGGLES_ENABLE=publicDashboards
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_SERVER_ROOT_URL=http://monitoring.lab.local:3000
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    depends_on:
+      - prometheus
+
+  # AlertManager - Alert Routing
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager:/etc/alertmanager
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://monitoring.lab.local:9093'
+      - '--cluster.listen-address=0.0.0.0:9094'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Node Exporter - System Metrics (for this monitoring host)
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /var/run/dbus/system_bus_socket:/var/run/dbus/system_bus_socket:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.systemd'
+      - '--collector.systemd.unit-whitelist=(docker|ssh|adguard|dokploy).service'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    privileged: true
+
+  # cAdvisor - Container Metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    privileged: true
+
+  # Blackbox Exporter - Endpoint Monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: blackbox-exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox:/etc/blackbox_exporter
+    command:
+      - '--config.file=/etc/blackbox_exporter/blackbox.yml'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # SNMP Exporter - Network Device Monitoring (UCG Ultra, Switch)
+  snmp-exporter:
+    image: prom/snmp-exporter:v0.24.1
+    container_name: snmp-exporter
+    ports:
+      - "9116:9116"
+    volumes:
+      - ./snmp:/etc/snmp_exporter
+    command:
+      - '--config.file=/etc/snmp_exporter/snmp.yml'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:2.9.2
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki:/etc/loki
+      - loki-data:/loki
+    command:
+      - '-config.file=/etc/loki/loki.yml'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Promtail - Log Collection
+  promtail:
+    image: grafana/promtail:2.9.2
+    container_name: promtail
+    volumes:
+      - ./promtail:/etc/promtail
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command:
+      - '-config.file=/etc/promtail/promtail.yml'
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    depends_on:
+      - loki
+
+  # Uptime Kuma - Service Uptime Monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:1.23.11
+    container_name: uptime-kuma
+    ports:
+      - "3001:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Speedtest Tracker - Internet Speed Monitoring
+  speedtest-tracker:
+    image: henrywhitaker3/speedtest-tracker:v0.12.0
+    container_name: speedtest-tracker
+    ports:
+      - "8765:80"
+    environment:
+      - OOKLA_EULA_GDPR=true
+      - DB_CONNECTION=sqlite
+      - SPEEDTEST_SCHEDULE=0 */6 * * *  # Every 6 hours
+      - SPEEDTEST_SERVERS=  # Auto-select best server
+      - DISPLAY_TIMEZONE=America/New_York
+    volumes:
+      - speedtest-data:/config
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Ntopng - Network Traffic Analysis
+  ntopng:
+    image: ntop/ntopng:stable
+    container_name: ntopng
+    ports:
+      - "3002:3000"
+    environment:
+      - NTOPNG_CONFIG_FILE=/etc/ntopng/ntopng.conf
+    volumes:
+      - ./ntopng:/etc/ntopng
+      - ntopng-data:/var/lib/ntopng
+    command: >
+      /usr/bin/ntopng
+      --interface=eth0
+      --http-port=3000
+      --data-dir=/var/lib/ntopng
+      --pid-file=/var/lib/ntopng/ntopng.pid
+      --user=ntopng
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+
+  # Portainer - Container Management UI
+  portainer:
+    image: portainer/portainer-ce:2.19.4
+    container_name: portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Dozzle - Docker Log Viewer
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # Watchtower - Automatic Container Updates
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=86400  # Check daily
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_NOTIFICATIONS=email
+      - WATCHTOWER_NOTIFICATION_EMAIL_FROM=watchtower@yourdomain.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_TO=admin@yourdomain.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER=smtp.gmail.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT=587
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER=alerts@yourdomain.com
+      - WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD=your-app-password
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+  loki-data:
+    driver: local
+  uptime-kuma-data:
+    driver: local
+  speedtest-data:
+    driver: local
+  ntopng-data:
+    driver: local
+  portainer-data:
+    driver: local
+
+networks:
+  monitoring-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
