@@ -1,0 +1,442 @@
+# AdGuard Home Primary Configuration
+# High-availability DNS with comprehensive filtering for homelab
+
+# HTTP Configuration
+http:
+  pprof:
+    port: 6060
+    enabled: false
+  address: 0.0.0.0:3000
+  session_ttl: 720h
+
+# DNS Configuration
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  anonymize_client_ip: false
+  ratelimit: 30
+  ratelimit_whitelist:
+    - 192.168.10.0/24  # Management VLAN
+    - 192.168.20.0/24  # Infrastructure VLAN
+    - 192.168.30.0/24  # Development VLAN
+    - 192.168.40.0/24  # Staging VLAN
+    - 192.168.50.0/24  # Production VLAN
+    - 192.168.60.0/24  # Storage VLAN
+    - 10.10.10.0/24    # VPN clients
+  refuse_any: true
+  
+  # Upstream DNS servers with DoH/DoT support
+  upstream_dns:
+    - https://dns.cloudflare.com/dns-query
+    - https://dns.google/dns-query
+    - https://dns.quad9.net/dns-query
+    - tls://1.1.1.1
+    - tls://8.8.8.8
+    - tls://9.9.9.9
+  
+  upstream_dns_file: ""
+  
+  # Bootstrap DNS for DoH/DoT resolution
+  bootstrap_dns:
+    - 1.1.1.1:53
+    - 8.8.8.8:53
+    - 9.9.9.9:53
+    - 208.67.222.222:53
+    
+  fallback_dns: []
+  upstream_mode: load_balance
+  fastest_timeout: 1s
+  
+  # Client restrictions
+  allowed_clients: []
+  disallowed_clients: []
+  
+  # Blocked hosts
+  blocked_hosts:
+    - version.bind
+    - id.server
+    - hostname.bind
+    
+  # Cache configuration
+  cache_size: 8388608  # 8MB cache
+  cache_ttl_min: 0
+  cache_ttl_max: 86400  # 24 hours
+  cache_optimistic: true
+  
+  bogus_nxdomain: []
+  aaaa_disabled: false
+  enable_dnssec: true
+  
+  # EDNS Client Subnet
+  edns_client_subnet:
+    custom_ip: ""
+    enabled: false
+    use_custom: false
+    
+  max_goroutines: 300
+  handle_ddr: true
+  ipset: []
+  ipset_file: ""
+  
+  # Filtering
+  filtering_enabled: true
+  filters_update_interval: 12  # Update every 12 hours
+  parental_enabled: false
+  safebrowsing_enabled: true
+  safebrowsing_cache_size: 1048576
+  safesearch_cache_size: 1048576
+  parental_cache_size: 1048576
+  cache_time: 30
+  
+  # Safe search configuration
+  safe_search:
+    enabled: false
+    bing: true
+    duckduckgo: true
+    google: true
+    pixabay: true
+    yandex: true
+    youtube: true
+    
+  # DNS rewrites for local services
+  rewrites:
+    - domain: "proxmox.lab.local"
+      answer: "192.168.1.10"
+    - domain: "qnap.lab.local"
+      answer: "192.168.1.60"
+    - domain: "adguard.lab.local"
+      answer: "192.168.1.20"
+    - domain: "adguard-primary.lab.local"
+      answer: "192.168.1.20"
+    - domain: "adguard-secondary.lab.local"
+      answer: "192.168.1.21"
+    - domain: "monitoring.lab.local"
+      answer: "192.168.1.26"
+    - domain: "dokploy-dev.lab.local"
+      answer: "192.168.1.30"
+    - domain: "dokploy-staging.lab.local"
+      answer: "192.168.1.40"
+    - domain: "dokploy-prod.lab.local"
+      answer: "192.168.1.50"
+    - domain: "gateway.lab.local"
+      answer: "192.168.1.1"
+    - domain: "traefik.lab.local"
+      answer: "192.168.1.26"
+      
+  blocked_services:
+    # Uncomment services to block network-wide
+    # - facebook
+    # - instagram
+    # - snapchat
+    # - tiktok
+    # - youtube
+    
+  upstream_timeout: 10s
+  private_networks:
+    - 192.168.0.0/16
+    - 172.16.0.0/12
+    - 10.0.0.0/8
+    - fc00::/7
+    - fe80::/10
+    - ::1/128
+    
+  use_private_ptr_resolvers: true
+  local_ptr_upstreams:
+    - 192.168.1.1  # UCG Ultra for local PTR records
+    
+  use_dns64: false
+  dns64_prefixes: []
+  serve_http3: false
+  use_http3_upstreams: true
+
+# TLS Configuration for DoH/DoT
+tls:
+  enabled: true
+  server_name: "adguard-primary.lab.local"
+  force_https: true
+  port_https: 443
+  port_dns_over_tls: 853
+  port_dns_over_quic: 784
+  port_dnscrypt: 0
+  dnscrypt_config_file: ""
+  allow_unencrypted_doh: false
+  certificate_chain: "/opt/ssl/adguard.crt"
+  private_key: "/opt/ssl/adguard.key"
+  certificate_path: ""
+  private_key_path: ""
+  strict_sni_check: false
+
+# Querylog Configuration
+querylog:
+  enabled: true
+  file_enabled: true
+  interval: 2160h  # 90 days
+  size_memory: 1000
+  ignored:
+    - '|.^'
+
+# Statistics Configuration
+statistics:
+  enabled: true
+  interval: 2160h  # 90 days
+  ignored:
+    - '|.^'
+
+# Comprehensive Filter Lists
+filters:
+  # Essential Ad Blocking
+  - enabled: true
+    url: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+    name: AdGuard DNS filter
+    id: 1
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_15_DnsFilter/filter.txt
+    name: AdGuard DNS filter (optimized)
+    id: 2
+    
+  # Privacy & Tracking Protection
+  - enabled: true
+    url: https://someonewhocares.org/hosts/zero/hosts
+    name: Dan Pollock's List
+    id: 3
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/cname-trackers/master/combined_disguised_trackers_justdomains.txt
+    name: AdGuard CNAME-cloaked trackers list
+    id: 4
+    
+  - enabled: true
+    url: https://www.github.developerdan.com/hosts/lists/ads-and-tracking-extended.txt
+    name: Developer Dan's Ads & Tracking Extended
+    id: 5
+    
+  # Malware & Security
+  - enabled: true
+    url: https://malware-filter.gitlab.io/malware-filter/urlhaus-filter-agh.txt
+    name: Malware Domain List
+    id: 6
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/DandelionSprout/adfilt/master/Alternate%20versions%20Anti-Malware%20List/AntiMalwareAdGuardHome.txt
+    name: Anti-Malware List
+    id: 7
+    
+  - enabled: true
+    url: https://phishing.army/download/phishing_army_blocklist_extended.txt
+    name: Phishing Army Extended
+    id: 8
+    
+  # Additional Privacy Lists
+  - enabled: true
+    url: https://raw.githubusercontent.com/crazy-max/WindowsSpyBlocker/master/data/hosts/spy.txt
+    name: Windows Spy Blocker
+    id: 9
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/SpywareFilter/sections/tracking_servers.txt
+    name: AdGuard Tracking Servers
+    id: 10
+    
+  # IoT & Smart TV
+  - enabled: true
+    url: https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/SmartTV-AGH.txt
+    name: Smart TV Blocklist
+    id: 11
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/SpywareFilter/sections/mobile.txt
+    name: Mobile Ads & Tracking
+    id: 12
+
+# Whitelist filters for false positives
+whitelist_filters:
+  - enabled: true
+    url: https://raw.githubusercontent.com/AdguardTeam/AdguardFilters/master/BaseFilter/sections/allowlist.txt
+    name: AdGuard Allowlist
+    id: 1000
+    
+  - enabled: true
+    url: https://raw.githubusercontent.com/anudeepND/whitelist/master/domains/whitelist.txt
+    name: Commonly Whitelisted Domains
+    id: 1001
+
+# Custom filtering rules
+user_rules:
+  # Homelab infrastructure whitelist
+  - '@@||lab.local^$important'
+  - '@@||dokploy.lab.local^$important'
+  - '@@||proxmox.lab.local^$important'
+  - '@@||qnap.lab.local^$important'
+  - '@@||adguard.lab.local^$important'
+  - '@@||monitoring.lab.local^$important'
+  - '@@||gateway.lab.local^$important'
+  - '@@||traefik.lab.local^$important'
+  
+  # Docker and container registries
+  - '@@||docker.io^$important'
+  - '@@||registry-1.docker.io^$important'
+  - '@@||ghcr.io^$important'
+  - '@@||quay.io^$important'
+  - '@@||gcr.io^$important'
+  
+  # Development and deployment tools
+  - '@@||github.com^$important'
+  - '@@||githubusercontent.com^$important'
+  - '@@||npmjs.org^$important'
+  - '@@||npmjs.com^$important'
+  - '@@||cloudflare.com^$important'
+  - '@@||amazonaws.com^$important'
+  
+  # Certificate authorities and security
+  - '@@||letsencrypt.org^$important'
+  - '@@||acme-v02.api.letsencrypt.org^$important'
+  - '@@||r3.o.lencr.org^$important'
+  
+  # Package managers and repositories
+  - '@@||debian.org^$important'
+  - '@@||ubuntu.com^$important'
+  - '@@||alpinelinux.org^$important'
+  - '@@||pypi.org^$important'
+  
+  # Custom blocks for specific threats (examples)
+  # - '||suspicious-domain.com^'
+  # - '||malware-c2.net^'
+
+# DHCP Configuration (disabled, UCG Ultra handles DHCP)
+dhcp:
+  enabled: false
+  interface_name: ""
+  local_domain_name: lab.local
+  dhcpv4:
+    gateway_ip: ""
+    subnet_mask: ""
+    range_start: ""
+    range_end: ""
+    lease_duration: 86400
+    icmp_timeout_msec: 1000
+    options: []
+  dhcpv6:
+    range_start: ""
+    lease_duration: 86400
+    ra_slaac_only: false
+    ra_allow_slaac: false
+
+# Client identification and settings
+clients:
+  runtime_sources:
+    whois: true
+    arp: true
+    rdns: true
+    dhcp: false  # UCG Ultra handles DHCP
+    hosts: true
+  persistent:
+    # Management devices
+    - name: "UCG-Ultra"
+      ids:
+        - 192.168.1.1
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # Proxmox host
+    - name: "Proxmox-Host"
+      ids:
+        - 192.168.1.10
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # Monitoring host
+    - name: "Monitoring-Host"
+      ids:
+        - 192.168.1.26
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # Development environment
+    - name: "Dokploy-Dev"
+      ids:
+        - 192.168.1.30
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # Staging environment
+    - name: "Dokploy-Staging"
+      ids:
+        - 192.168.1.40
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # Production environment (stricter filtering)
+    - name: "Dokploy-Prod"
+      ids:
+        - 192.168.1.50
+      blocked_services:
+        # Uncomment to block social media on production
+        # - facebook
+        # - instagram
+        # - snapchat
+        # - tiktok
+        # - youtube
+      upstreams: []
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+      
+    # QNAP Storage
+    - name: "QNAP-Storage"
+      ids:
+        - 192.168.1.60
+      blocked_services: []
+      upstreams: []
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      safesearch_enabled: false
+
+# Logging Configuration
+log:
+  file: ""
+  max_backups: 0
+  max_size: 100
+  max_age: 3
+  compress: false
+  local_time: false
+  verbose: false
+
+# OS-specific settings
+os:
+  group: ""
+  user: ""
+  rlimit_nofile: 0
+
+# Schema version
+schema_version: 20
