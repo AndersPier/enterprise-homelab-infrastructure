@@ -1,0 +1,174 @@
+# SNMP Exporter Configuration for Network Devices
+# Monitors network equipment like UCG Ultra, switches, and access points
+
+# Default authentication credentials for SNMP v2c
+auths:
+  public_v2:
+    community: public
+    security_level: noAuthNoPriv
+    auth_protocol: MD5
+    priv_protocol: DES
+    version: 2
+
+# Modules define which OIDs to collect for different device types
+modules:
+  # Generic network device monitoring
+  if_mib:
+    walk:
+      - 1.3.6.1.2.1.2.2.1.2   # ifDescr
+      - 1.3.6.1.2.1.2.2.1.3   # ifType
+      - 1.3.6.1.2.1.2.2.1.5   # ifSpeed
+      - 1.3.6.1.2.1.2.2.1.7   # ifAdminStatus
+      - 1.3.6.1.2.1.2.2.1.8   # ifOperStatus
+      - 1.3.6.1.2.1.2.2.1.10  # ifInOctets
+      - 1.3.6.1.2.1.2.2.1.11  # ifInUcastPkts
+      - 1.3.6.1.2.1.2.2.1.13  # ifInDiscards
+      - 1.3.6.1.2.1.2.2.1.14  # ifInErrors
+      - 1.3.6.1.2.1.2.2.1.16  # ifOutOctets
+      - 1.3.6.1.2.1.2.2.1.17  # ifOutUcastPkts
+      - 1.3.6.1.2.1.2.2.1.19  # ifOutDiscards
+      - 1.3.6.1.2.1.2.2.1.20  # ifOutErrors
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+      - source_indexes: [ifIndex]
+        lookup: ifType
+    overrides:
+      ifType:
+        type: EnumAsInfo
+
+  # System information
+  system:
+    walk:
+      - 1.3.6.1.2.1.1.1.0     # sysDescr
+      - 1.3.6.1.2.1.1.2.0     # sysObjectID
+      - 1.3.6.1.2.1.1.3.0     # sysUpTime
+      - 1.3.6.1.2.1.1.4.0     # sysContact
+      - 1.3.6.1.2.1.1.5.0     # sysName
+      - 1.3.6.1.2.1.1.6.0     # sysLocation
+
+  # Ubiquiti UniFi specific monitoring
+  ubiquiti_unifi:
+    walk:
+      # System information
+      - 1.3.6.1.2.1.1         # System MIB
+      # Interface statistics
+      - 1.3.6.1.2.1.2.2.1     # Interface MIB
+      # CPU and memory (if supported)
+      - 1.3.6.1.4.1.2021.11   # UCD-SNMP-MIB
+      - 1.3.6.1.4.1.2021.4    # Memory
+      # Temperature sensors (if available)
+      - 1.3.6.1.4.1.10002.1   # UniFi specific OIDs
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+      - source_indexes: [ifIndex]
+        lookup: ifName
+    overrides:
+      ifType:
+        type: EnumAsInfo
+
+  # Generic switch monitoring
+  switch:
+    walk:
+      # Standard MIBs
+      - 1.3.6.1.2.1.1         # System
+      - 1.3.6.1.2.1.2.2.1     # Interfaces
+      - 1.3.6.1.2.1.17        # Bridge MIB
+      # Power over Ethernet (if supported)
+      - 1.3.6.1.2.1.105       # POWER-ETHERNET-MIB
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+      - source_indexes: [ifIndex]
+        lookup: ifAlias
+    overrides:
+      ifType:
+        type: EnumAsInfo
+      ifAdminStatus:
+        type: EnumAsStateSet
+      ifOperStatus:
+        type: EnumAsStateSet
+
+  # Router/Gateway specific monitoring
+  router:
+    walk:
+      # System and interfaces
+      - 1.3.6.1.2.1.1         # System
+      - 1.3.6.1.2.1.2.2.1     # Interfaces
+      # IP forwarding
+      - 1.3.6.1.2.1.4.1.0     # ipForwarding
+      # Routing table (limited walk)
+      - 1.3.6.1.2.1.4.21.1.1  # ipRouteDest
+      - 1.3.6.1.2.1.4.21.1.7  # ipRouteNextHop
+      - 1.3.6.1.2.1.4.21.1.11 # ipRouteType
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+    overrides:
+      ifType:
+        type: EnumAsInfo
+
+  # Access Point specific monitoring
+  access_point:
+    walk:
+      # System
+      - 1.3.6.1.2.1.1
+      # Interfaces
+      - 1.3.6.1.2.1.2.2.1
+      # Wireless specific (varies by vendor)
+      - 1.3.6.1.4.1.14988     # MikroTik
+      - 1.3.6.1.4.1.41112     # Ubiquiti
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+
+  # QNAP NAS SNMP monitoring (if SNMP enabled)
+  qnap:
+    walk:
+      # System information
+      - 1.3.6.1.2.1.1
+      # Interfaces
+      - 1.3.6.1.2.1.2.2.1
+      # Storage information
+      - 1.3.6.1.2.1.25.2.3.1  # hrStorageTable
+      # QNAP specific OIDs (if available)
+      - 1.3.6.1.4.1.24681     # QNAP Enterprise OID
+    lookups:
+      - source_indexes: [ifIndex]
+        lookup: ifDescr
+      - source_indexes: [hrStorageIndex]
+        lookup: hrStorageDescr
+    overrides:
+      hrStorageType:
+        type: EnumAsInfo
+
+  # UPS monitoring (APC or similar)
+  ups:
+    walk:
+      # UPS MIB
+      - 1.3.6.1.2.1.33.1.1    # upsIdent
+      - 1.3.6.1.2.1.33.1.2    # upsBattery
+      - 1.3.6.1.2.1.33.1.3    # upsInput
+      - 1.3.6.1.2.1.33.1.4    # upsOutput
+      - 1.3.6.1.2.1.33.1.5    # upsBypass
+      - 1.3.6.1.2.1.33.1.6    # upsAlarm
+    overrides:
+      upsAlarmDescr:
+        type: DisplayString
+
+  # Printer monitoring (if network printers exist)
+  printer:
+    walk:
+      # System
+      - 1.3.6.1.2.1.1
+      # Printer MIB
+      - 1.3.6.1.2.1.43.5      # prtMarker
+      - 1.3.6.1.2.1.43.8      # prtMarkerSupplies
+      - 1.3.6.1.2.1.43.10     # prtMarkerColorant
+    lookups:
+      - source_indexes: [prtMarkerSuppliesIndex]
+        lookup: prtMarkerSuppliesDescription
+
+# Version information
+version: 1
