@@ -1,0 +1,317 @@
+# /etc/traefik/dynamic/dokploy-routing.yml
+# Dynamic configuration for routing to Dokploy instances
+
+http:
+  # Middlewares for security and functionality
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        accessControlMaxAge: 100
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        referrerPolicy: "strict-origin-when-cross-origin"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 31536000
+        stsPreload: true
+        frameDeny: true
+        customFrameOptionsValue: "SAMEORIGIN"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+    # Rate limiting to prevent abuse
+    rate-limit:
+      rateLimit:
+        burst: 100
+        average: 50
+        period: "1m"
+
+    # Rate limiting for API endpoints
+    api-rate-limit:
+      rateLimit:
+        burst: 20
+        average: 10
+        period: "1m"
+
+    # Compression
+    compression:
+      compress: {}
+
+    # CORS headers for API access
+    cors-headers:
+      headers:
+        accessControlAllowOriginList:
+          - "https://*.yourdomain.com"  # CHANGE DOMAIN
+        accessControlAllowHeaders:
+          - "authorization"
+          - "content-type"
+          - "x-requested-with"
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+        accessControlMaxAge: 3600
+
+    # Authentication placeholder (configure with your auth system)
+    auth-basic:
+      basicAuth:
+        users:
+          # admin:admin123 (change this!)
+          - "admin:$2y$10$DKOZJzJjfKJoLHMwXxEu.u8b7K6e7aF9WKq8XYKvLgzZ7YJTXr.yK"
+
+  # Routers for different Dokploy instances
+  routers:
+    # ==============================================
+    # DOKPLOY DEVELOPMENT INSTANCE
+    # Routes: *.dev.yourdomain.com
+    # ==============================================
+    dokploy-dev-router:
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.dev.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-dev-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+        domains:
+          - main: "*.dev.yourdomain.com"  # CHANGE DOMAIN
+            sans:
+              - "dev.yourdomain.com"      # CHANGE DOMAIN
+      middlewares:
+        - security-headers
+        - compression
+        - rate-limit
+      priority: 100
+
+    # Dokploy Dev UI (direct access)
+    dokploy-dev-ui-router:
+      rule: "Host(`dokploy-dev.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-dev-ui-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+      priority: 200
+
+    # ==============================================  
+    # DOKPLOY STAGING INSTANCE
+    # Routes: *.staging.yourdomain.com
+    # ==============================================
+    dokploy-staging-router:
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.staging.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-staging-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+        domains:
+          - main: "*.staging.yourdomain.com"  # CHANGE DOMAIN
+            sans:
+              - "staging.yourdomain.com"       # CHANGE DOMAIN
+      middlewares:
+        - security-headers
+        - compression
+        - rate-limit
+      priority: 100
+
+    # Dokploy Staging UI (direct access)
+    dokploy-staging-ui-router:
+      rule: "Host(`dokploy-staging.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-staging-ui-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+      priority: 200
+
+    # ==============================================
+    # DOKPLOY PRODUCTION INSTANCE  
+    # Routes: *.prod.yourdomain.com OR *.yourdomain.com
+    # ==============================================
+    dokploy-prod-router:
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.prod.yourdomain.com`) || HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-prod-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+        domains:
+          - main: "*.prod.yourdomain.com"  # CHANGE DOMAIN
+            sans:
+              - "prod.yourdomain.com"      # CHANGE DOMAIN
+          - main: "*.yourdomain.com"       # CHANGE DOMAIN
+            sans:
+              - "yourdomain.com"           # CHANGE DOMAIN
+      middlewares:
+        - security-headers
+        - compression
+        - rate-limit
+      priority: 100
+
+    # Dokploy Production UI (direct access with extra security)
+    dokploy-prod-ui-router:
+      rule: "Host(`dokploy-prod.yourdomain.com`)"  # CHANGE DOMAIN
+      service: dokploy-prod-ui-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+        - api-rate-limit
+      priority: 200
+
+    # ==============================================
+    # INFRASTRUCTURE SERVICES
+    # ==============================================
+    
+    # Monitoring Dashboard (Grafana)
+    monitoring-router:
+      rule: "Host(`monitoring.yourdomain.com`)"  # CHANGE DOMAIN
+      service: monitoring-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+
+    # Prometheus (protected access)
+    prometheus-router:
+      rule: "Host(`prometheus.yourdomain.com`)"  # CHANGE DOMAIN
+      service: prometheus-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+
+    # AlertManager (protected access)
+    alertmanager-router:
+      rule: "Host(`alerts.yourdomain.com`)"  # CHANGE DOMAIN
+      service: alertmanager-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt-prod
+      middlewares:
+        - security-headers
+        - auth-basic
+
+  # Services (Backend Servers)
+  services:
+    # Dokploy Development Instance
+    dokploy-dev-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.30:80"  # CHANGE TO YOUR DOKPLOY DEV IP
+        passHostHeader: true
+        responseForwarding:
+          flushInterval: 1ms
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+
+    # Dokploy Development UI
+    dokploy-dev-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.30:3000"  # CHANGE TO YOUR DOKPLOY DEV IP
+        passHostHeader: true
+
+    # Dokploy Staging Instance  
+    dokploy-staging-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.40:80"  # CHANGE TO YOUR DOKPLOY STAGING IP
+        passHostHeader: true
+        responseForwarding:
+          flushInterval: 1ms
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+
+    # Dokploy Staging UI
+    dokploy-staging-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.40:3000"  # CHANGE TO YOUR DOKPLOY STAGING IP
+        passHostHeader: true
+
+    # Dokploy Production Instance
+    dokploy-prod-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.50:80"  # CHANGE TO YOUR DOKPLOY PROD IP
+        passHostHeader: true
+        responseForwarding:
+          flushInterval: 1ms
+        healthCheck:
+          path: "/health"
+          interval: "30s"
+          timeout: "5s"
+
+    # Dokploy Production UI
+    dokploy-prod-ui-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.50:3000"  # CHANGE TO YOUR DOKPLOY PROD IP
+        passHostHeader: true
+
+    # Monitoring Services
+    monitoring-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.26:3000"  # CHANGE TO YOUR MONITORING IP
+        passHostHeader: true
+
+    prometheus-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.26:9090"  # CHANGE TO YOUR MONITORING IP
+        passHostHeader: true
+
+    alertmanager-service:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.26:9093"  # CHANGE TO YOUR MONITORING IP
+        passHostHeader: true
+
+# TLS Configuration for wildcard certificates
+tls:
+  certificates:
+    # Certificates will be automatically generated by ACME
+    # You can also manually specify certificates here if needed
+    []
+
+# TCP Routing (if needed for non-HTTP services)
+tcp:
+  routers: {}
+  services: {}
+
+# UDP Routing (if needed)
+udp:
+  routers: {}
+  services: {}
