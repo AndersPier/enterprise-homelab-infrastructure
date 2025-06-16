@@ -1,0 +1,238 @@
+# AlertManager Configuration for Enterprise Homelab
+# Handles alert routing, grouping, and notifications
+
+global:
+  # SMTP configuration for email alerts
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'homelab-alerts@yourdomain.com'  # CHANGE THIS
+  smtp_auth_username: 'homelab-alerts@yourdomain.com'  # CHANGE THIS
+  smtp_auth_password: 'your-app-password'  # CHANGE THIS - Use app-specific password
+  smtp_require_tls: true
+
+# Template files for custom alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Main routing tree for alerts
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s       # Wait before sending first notification for a group
+  group_interval: 10s   # How long to wait before sending updates for a group
+  repeat_interval: 12h  # How often to resend alerts if still firing
+  receiver: 'default'   # Default receiver if no routes match
+
+  # Sub-routes for different alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s      # Send immediately
+      repeat_interval: 5m # Resend every 5 minutes while active
+      continue: true      # Also process by other routes
+
+    # Infrastructure alerts
+    - match:
+        category: infrastructure
+      receiver: 'infrastructure-team'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # Application alerts
+    - match:
+        category: application
+      receiver: 'dev-team'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Network alerts
+    - match:
+        category: network
+      receiver: 'network-team'
+      group_wait: 30s
+      repeat_interval: 1h
+
+    # Storage and backup alerts
+    - match:
+        category: storage
+      receiver: 'storage-team'
+      group_wait: 1m
+      repeat_interval: 6h
+
+    # Hardware alerts
+    - match:
+        category: hardware
+      receiver: 'hardware-team'
+      group_wait: 30s
+      repeat_interval: 2h
+
+# Receivers define how and where to send alerts
+receivers:
+  # Default receiver for all other alerts
+  - name: 'default'
+    email_configs:
+      - to: 'admin@yourdomain.com'  # CHANGE THIS
+        subject: 'Homelab Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}: {{ .Value }}{{ end }}
+          Started: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+
+  # Critical alerts with enhanced formatting and multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@yourdomain.com'  # CHANGE THIS
+        subject: '🚨 CRITICAL: Homelab Alert - {{ .GroupLabels.alertname }}'
+        html: |
+          <h2 style="color: red;">🚨 CRITICAL ALERT 🚨</h2>
+          <table border="1" style="border-collapse: collapse;">
+          {{ range .Alerts }}
+          <tr><td><strong>Alert</strong></td><td>{{ .Annotations.summary }}</td></tr>
+          <tr><td><strong>Description</strong></td><td>{{ .Annotations.description }}</td></tr>
+          <tr><td><strong>Severity</strong></td><td style="color: red;">{{ .Labels.severity }}</td></tr>
+          <tr><td><strong>Instance</strong></td><td>{{ .Labels.instance }}</td></tr>
+          <tr><td><strong>Started</strong></td><td>{{ .StartsAt.Format "2006-01-02 15:04:05" }}</td></tr>
+          <tr><td colspan="2"><hr></td></tr>
+          {{ end }}
+          </table>
+          <p><strong>Immediate action required!</strong></p>
+    # Webhook for additional integrations (Slack, Discord, etc.)
+    webhook_configs:
+      - url: 'http://uptime-kuma:3001/api/push/alert'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: 'alert-webhook'
+            password: 'webhook-password'
+
+  # Infrastructure team alerts
+  - name: 'infrastructure-team'
+    email_configs:
+      - to: 'infrastructure@yourdomain.com'  # CHANGE THIS
+        subject: 'Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Infrastructure Alert Summary:
+          
+          {{ range .Alerts }}
+          • {{ .Annotations.summary }}
+            Details: {{ .Annotations.description }}
+            Instance: {{ .Labels.instance }}
+            Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          {{ end }}
+          
+          Dashboard: http://monitoring.lab.local:3000
+          Prometheus: http://monitoring.lab.local:9090
+
+  # Development team alerts
+  - name: 'dev-team'
+    email_configs:
+      - to: 'developers@yourdomain.com'  # CHANGE THIS
+        subject: 'Application Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Application Alert:
+          
+          {{ range .Alerts }}
+          Application: {{ .Labels.name | default "Unknown" }}
+          Issue: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment | default "Unknown" }}
+          Instance: {{ .Labels.instance }}
+          
+          {{ end }}
+          
+          Dokploy Dev: http://dokploy-dev.lab.local:3000
+          Dokploy Staging: http://dokploy-staging.lab.local:3000
+          Dokploy Prod: http://dokploy-prod.lab.local:3000
+
+  # Network team alerts
+  - name: 'network-team'
+    email_configs:
+      - to: 'network@yourdomain.com'  # CHANGE THIS
+        subject: 'Network Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Network Infrastructure Alert:
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Affected: {{ .Labels.instance }}
+          Type: {{ .Labels.category }}
+          
+          {{ end }}
+          
+          Network Dashboard: http://monitoring.lab.local:3002
+          UCG Ultra: https://192.168.1.1
+
+  # Storage team alerts
+  - name: 'storage-team'
+    email_configs:
+      - to: 'storage@yourdomain.com'  # CHANGE THIS
+        subject: 'Storage Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Storage System Alert:
+          
+          {{ range .Alerts }}
+          Storage Issue: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          System: {{ .Labels.instance }}
+          
+          {{ end }}
+          
+          QNAP Management: https://qnap.lab.local
+          Backup Status: Check /mnt/backup directories
+
+  # Hardware team alerts
+  - name: 'hardware-team'
+    email_configs:
+      - to: 'hardware@yourdomain.com'  # CHANGE THIS
+        subject: 'Hardware Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Hardware Alert:
+          
+          {{ range .Alerts }}
+          Hardware Issue: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          System: {{ .Labels.instance }}
+          Component: {{ .Labels.chip | default "Unknown" }}
+          
+          {{ end }}
+          
+          Immediate physical inspection may be required.
+
+# Inhibit rules prevent certain alerts from firing when others are active
+inhibit_rules:
+  # Inhibit any warning-level alert if the same alert is already critical
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Inhibit high resource usage alerts if host is down
+  - source_match:
+      alertname: 'HostDown'
+    target_match_re:
+      alertname: '^(HighCPUUsage|HighMemoryUsage|HighDiskUsage)$'
+    equal: ['instance']
+
+  # Inhibit container alerts if the whole Docker service is down
+  - source_match:
+      alertname: 'DockerServiceDown'
+    target_match_re:
+      alertname: '^(ContainerDown|ContainerHighCPU|ContainerHighMemory)$'
+    equal: ['instance']
+
+  # Inhibit endpoint alerts if DNS is failing
+  - source_match:
+      alertname: 'DNSResolutionFailure'
+    target_match:
+      alertname: 'HTTPEndpointDown'
+    equal: ['instance']
+
+# Mute specific alerts during maintenance windows
+# Create these files to temporarily silence alerts:
+# echo "alertname=HostDown instance=192.168.1.10:9100" > /etc/alertmanager/silences/maintenance.yml
