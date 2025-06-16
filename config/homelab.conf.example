@@ -1,0 +1,303 @@
+# Enterprise Homelab Infrastructure Configuration
+# Copy this file to homelab.conf and customize for your environment
+
+# =====================================
+# NETWORK CONFIGURATION
+# =====================================
+
+# Your domain name (required for SSL certificates and external access)
+DOMAIN_NAME="yourdomain.com"
+LOCAL_DOMAIN="lab.local"
+
+# Network architecture choice
+# Options: "single" (simple setup) or "vlan" (advanced with managed switch)
+NETWORK_MODE="single"
+
+# Public IP address (for DNS records and external access)
+PUBLIC_IP="YOUR_PUBLIC_IP_HERE"
+
+# =====================================
+# SINGLE NETWORK CONFIGURATION
+# Use these settings if NETWORK_MODE="single"
+# =====================================
+
+# Main network configuration
+NETWORK_CIDR="192.168.1.0/24"
+GATEWAY_IP="192.168.1.1"
+
+# Static IP assignments for infrastructure
+PROXMOX_IP="192.168.1.10"
+ADGUARD_PRIMARY_IP="192.168.1.20"
+ADGUARD_SECONDARY_IP="192.168.1.21"
+TRAEFIK_IP="192.168.1.25"
+MONITORING_IP="192.168.1.26"
+DOKPLOY_DEV_IP="192.168.1.30"
+DOKPLOY_STAGING_IP="192.168.1.40"
+DOKPLOY_PROD_IP="192.168.1.50"
+QNAP_IP="192.168.1.60"
+
+# =====================================
+# VLAN CONFIGURATION
+# Use these settings if NETWORK_MODE="vlan"
+# Requires managed switch with VLAN support
+# =====================================
+
+# VLAN network ranges
+MGMT_VLAN="192.168.10.0/24"
+INFRA_VLAN="192.168.20.0/24"
+DEV_VLAN="192.168.30.0/24"
+STAGING_VLAN="192.168.40.0/24"
+PROD_VLAN="192.168.50.0/24"
+STORAGE_VLAN="192.168.60.0/24"
+
+# VLAN static IP assignments
+VLAN_PROXMOX_IP="192.168.10.10"
+VLAN_ADGUARD_PRIMARY_IP="192.168.20.10"
+VLAN_ADGUARD_SECONDARY_IP="192.168.20.11"
+VLAN_TRAEFIK_IP="192.168.20.20"
+VLAN_MONITORING_IP="192.168.20.21"
+VLAN_DOKPLOY_DEV_IP="192.168.30.10"
+VLAN_DOKPLOY_STAGING_IP="192.168.40.10"
+VLAN_DOKPLOY_PROD_IP="192.168.50.10"
+VLAN_QNAP_IP="192.168.60.10"
+
+# =====================================
+# DNS PROVIDER CONFIGURATION
+# Required for automatic SSL certificate generation
+# =====================================
+
+# DNS provider (cloudflare, digitalocean, route53, namecheap, etc.)
+DNS_PROVIDER="cloudflare"
+
+# Cloudflare credentials (if using Cloudflare)
+CLOUDFLARE_EMAIL="your-email@domain.com"
+CLOUDFLARE_API_TOKEN="your-cloudflare-api-token-here"
+# Alternative: use Global API Key (less secure)
+# CLOUDFLARE_API_KEY="your-global-api-key-here"
+
+# DigitalOcean credentials (if using DigitalOcean)
+# DO_AUTH_TOKEN="your-digitalocean-api-token"
+
+# AWS Route53 credentials (if using Route53)
+# AWS_ACCESS_KEY_ID="your-access-key"
+# AWS_SECRET_ACCESS_KEY="your-secret-key"
+# AWS_REGION="us-east-1"
+
+# Namecheap credentials (if using Namecheap)
+# NAMECHEAP_API_USER="your-username"
+# NAMECHEAP_API_KEY="your-api-key"
+
+# =====================================
+# EMAIL CONFIGURATION
+# For monitoring alerts and notifications
+# =====================================
+
+# SMTP server configuration
+SMTP_SERVER="smtp.gmail.com:587"
+SMTP_USERNAME="homelab-alerts@yourdomain.com"
+SMTP_PASSWORD="your-app-password-here"
+
+# Alert recipients
+ADMIN_EMAIL="admin@yourdomain.com"
+ALERT_EMAIL="alerts@yourdomain.com"
+TEAM_EMAIL="team@yourdomain.com"
+
+# =====================================
+# SECURITY CONFIGURATION
+# =====================================
+
+# SSH configuration
+SSH_PORT="22"
+SSH_KEY_PATH="/root/.ssh/id_rsa.pub"
+
+# Default passwords (change these!)
+GRAFANA_ADMIN_PASSWORD="secure-grafana-password-123"
+ADGUARD_ADMIN_PASSWORD="secure-adguard-password-123"
+DOKPLOY_ADMIN_PASSWORD="secure-dokploy-password-123"
+
+# VPN configuration
+VPN_NETWORK="10.10.10.0/24"
+VPN_PORT="51820"
+
+# =====================================
+# BACKUP CONFIGURATION
+# =====================================
+
+# Backup retention settings
+BACKUP_RETENTION_DAYS="30"
+CONFIG_BACKUP_RETENTION_DAYS="90"
+
+# Local backup location (usually on QNAP)
+LOCAL_BACKUP_PATH="/mnt/qnap-backup"
+
+# Offsite backup configuration
+OFFSITE_BACKUP_ENABLED="false"
+OFFSITE_BACKUP_PROVIDER="s3"  # Options: s3, rclone, rsync
+
+# S3 backup configuration (if using S3)
+# S3_BACKUP_BUCKET="homelab-backups"
+# S3_BACKUP_REGION="us-east-1"
+# S3_ACCESS_KEY_ID="your-s3-access-key"
+# S3_SECRET_ACCESS_KEY="your-s3-secret-key"
+
+# =====================================
+# DOCKER AND CONTAINER CONFIGURATION
+# =====================================
+
+# Docker registry settings
+DOCKER_REGISTRY="docker.io"
+PRIVATE_REGISTRY_ENABLED="false"
+# PRIVATE_REGISTRY_URL="registry.yourdomain.com"
+# PRIVATE_REGISTRY_USERNAME="registry-user"
+# PRIVATE_REGISTRY_PASSWORD="registry-password"
+
+# Container resource limits
+DEFAULT_CPU_LIMIT="2"
+DEFAULT_MEMORY_LIMIT="2g"
+
+# Development environment limits
+DEV_CPU_LIMIT="4"
+DEV_MEMORY_LIMIT="8g"
+
+# Staging environment limits
+STAGING_CPU_LIMIT="6"
+STAGING_MEMORY_LIMIT="12g"
+
+# Production environment limits
+PROD_CPU_LIMIT="8"
+PROD_MEMORY_LIMIT="16g"
+
+# =====================================
+# MONITORING CONFIGURATION
+# =====================================
+
+# Monitoring data retention
+PROMETHEUS_RETENTION="90d"
+GRAFANA_RETENTION="1y"
+LOG_RETENTION="30d"
+
+# Alert thresholds
+CPU_WARNING_THRESHOLD="80"
+CPU_CRITICAL_THRESHOLD="90"
+MEMORY_WARNING_THRESHOLD="85"
+MEMORY_CRITICAL_THRESHOLD="95"
+DISK_WARNING_THRESHOLD="80"
+DISK_CRITICAL_THRESHOLD="90"
+
+# Monitoring endpoints
+PROMETHEUS_PORT="9090"
+GRAFANA_PORT="3000"
+ALERTMANAGER_PORT="9093"
+
+# =====================================
+# STORAGE CONFIGURATION
+# =====================================
+
+# QNAP storage settings
+QNAP_NFS_ENABLED="true"
+QNAP_S3_ENABLED="true"
+
+# NFS mount options
+NFS_OPTIONS="vers=4,hard,intr,rsize=8192,wsize=8192,timeo=14"
+
+# S3 storage settings
+S3_ENDPOINT="https://qnap.lab.local:443"
+S3_REGION="us-east-1"
+S3_FORCE_PATH_STYLE="true"
+S3_SSL_VERIFY="false"
+
+# =====================================
+# APPLICATION CONFIGURATION
+# =====================================
+
+# Dokploy configuration
+DOKPLOY_VERSION="latest"
+DOKPLOY_DOMAIN_PREFIX_DEV="dev"
+DOKPLOY_DOMAIN_PREFIX_STAGING="staging"
+DOKPLOY_DOMAIN_PREFIX_PROD="prod"
+
+# AdGuard configuration
+ADGUARD_VERSION="latest"
+ADGUARD_DNS_PORT="53"
+ADGUARD_WEB_PORT="3000"
+ADGUARD_DOH_ENABLED="true"
+ADGUARD_DOT_ENABLED="true"
+
+# Traefik configuration
+TRAEFIK_VERSION="v3.0"
+TRAEFIK_API_ENABLED="true"
+TRAEFIK_API_INSECURE="false"
+
+# =====================================
+# DEVELOPMENT SETTINGS
+# =====================================
+
+# Development tools
+PORTAINER_ENABLED="true"
+PHPMA_ENABLED="false"
+REDIS_COMMANDER_ENABLED="false"
+
+# Debug settings
+DEBUG_MODE="false"
+VERBOSE_LOGGING="false"
+
+# =====================================
+# ADVANCED SETTINGS
+# Only modify if you know what you're doing
+# =====================================
+
+# Performance tuning
+DOCKER_LOG_DRIVER="json-file"
+DOCKER_LOG_MAX_SIZE="10m"
+DOCKER_LOG_MAX_FILE="3"
+
+# Network tuning
+TCP_KEEPALIVE="7200"
+TCP_KEEPINTVL="75"
+TCP_KEEPCNT="9"
+
+# System limits
+NOFILE_LIMIT="65536"
+NPROC_LIMIT="65536"
+
+# =====================================
+# FEATURE FLAGS
+# Enable/disable specific features
+# =====================================
+
+ENABLE_MONITORING="true"
+ENABLE_BACKUP="true"
+ENABLE_VPN="true"
+ENABLE_ADGUARD="true"
+ENABLE_TRAEFIK="true"
+ENABLE_DOKPLOY="true"
+ENABLE_QNAP_INTEGRATION="true"
+ENABLE_SSL_AUTOMATION="true"
+ENABLE_SECURITY_SCANNING="false"
+ENABLE_LOG_AGGREGATION="true"
+
+# =====================================
+# VALIDATION
+# These values are used for configuration validation
+# =====================================
+
+CONFIG_VERSION="1.0"
+MIN_DISK_SPACE_GB="100"
+MIN_MEMORY_GB="16"
+MIN_CPU_CORES="4"
+
+# =====================================
+# NOTES
+# =====================================
+
+# 1. Replace all placeholder values (your-*, YOUR_*, etc.) with actual values
+# 2. Generate strong passwords for all administrative accounts
+# 3. Ensure DNS API credentials have appropriate permissions
+# 4. Test network connectivity before running installation
+# 5. Review firewall rules and VPN configuration for security
+# 6. Backup this configuration file securely after customization
+
+# For detailed setup instructions, see:
+# - docs/implementation-guide.md
+# - docs/architecture.md
+# - network/vlan-setup.md (for VLAN configuration)
