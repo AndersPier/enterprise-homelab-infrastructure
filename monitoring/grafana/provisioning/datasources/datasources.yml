@@ -1,0 +1,111 @@
+# Grafana Datasources Configuration
+# Automatically provisions datasources for Grafana
+
+apiVersion: 1
+
+# List of datasources to insert/update depending on what's available in the database
+datasources:
+  # Prometheus datasource for metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    version: 1
+    jsonData:
+      httpMethod: POST
+      keepCookies: []
+      timeInterval: 30s
+      queryTimeout: 60s
+      defaultRegion: default
+      customQueryParameters: ""
+      manageAlerts: true
+      alertmanagerUid: alertmanager
+    secureJsonData: {}
+    uid: prometheus-uid
+
+  # Loki datasource for logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: true
+    version: 1
+    jsonData:
+      httpMethod: GET
+      keepCookies: []
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: prometheus-uid
+          matcherRegex: "traceID=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
+    secureJsonData: {}
+    uid: loki-uid
+
+  # AlertManager datasource
+  - name: AlertManager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    isDefault: false
+    editable: true
+    version: 1
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false
+    secureJsonData: {}
+    uid: alertmanager-uid
+
+  # Example datasource for external metrics (if using external Prometheus)
+  # - name: External Prometheus
+  #   type: prometheus
+  #   access: proxy
+  #   url: https://prometheus.example.com:9090
+  #   isDefault: false
+  #   editable: true
+  #   version: 1
+  #   basicAuth: true
+  #   basicAuthUser: monitoring
+  #   secureJsonData:
+  #     basicAuthPassword: password
+  #   jsonData:
+  #     httpMethod: POST
+  #     timeInterval: 30s
+  #   uid: external-prometheus-uid
+
+  # Example InfluxDB datasource (if using InfluxDB for time series data)
+  # - name: InfluxDB
+  #   type: influxdb
+  #   access: proxy
+  #   url: http://influxdb:8086
+  #   database: homelab
+  #   isDefault: false
+  #   editable: true
+  #   version: 1
+  #   user: grafana
+  #   secureJsonData:
+  #     password: influxdb_password
+  #   uid: influxdb-uid
+
+  # Example MySQL/PostgreSQL datasource (for application databases)
+  # - name: Application Database
+  #   type: mysql
+  #   access: proxy
+  #   url: mysql.lab.local:3306
+  #   database: app_db
+  #   isDefault: false
+  #   editable: true
+  #   version: 1
+  #   user: grafana_ro
+  #   secureJsonData:
+  #     password: database_password
+  #   uid: mysql-uid
+
+# Deletions - datasources to be deleted
+deleteDatasources:
+  - name: Old Prometheus
+    orgId: 1
+  # Add any old datasources that should be removed
