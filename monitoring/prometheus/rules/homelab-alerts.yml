@@ -1,0 +1,298 @@
+# Prometheus Alert Rules for Enterprise Homelab
+# These rules define when alerts should be triggered based on metrics
+
+groups:
+  # Infrastructure Health Alerts
+  - name: infrastructure.rules
+    rules:
+      # Host/Service Down Alerts
+      - alert: HostDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Host {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: ProxmoxDown
+        expr: up{job="proxmox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Proxmox host is unreachable"
+          description: "Proxmox VE host {{ $labels.instance }} is not responding"
+
+      - alert: DNSServiceDown
+        expr: up{job="blackbox-dns"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: network
+        annotations:
+          summary: "DNS service failure on {{ $labels.instance }}"
+          description: "DNS server {{ $labels.instance }} is not responding to queries"
+
+      # Resource Usage Alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% (above 85%) for more than 5 minutes"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% (above 95%) - immediate attention required"
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% (above 90%) for more than 5 minutes"
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% (above 95%) - immediate attention required"
+
+      # Disk Space Alerts
+      - alert: HighDiskUsage
+        expr: 100 - ((node_filesystem_avail_bytes{fstype!="tmpfs"} * 100) / node_filesystem_size_bytes) > 85
+        for: 5m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High disk usage on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value }}% on {{ $labels.mountpoint }} ({{ $labels.device }})"
+
+      - alert: CriticalDiskUsage
+        expr: 100 - ((node_filesystem_avail_bytes{fstype!="tmpfs"} * 100) / node_filesystem_size_bytes) > 95
+        for: 1m
+        labels:
+          severity: critical
+          category: infrastructure
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage is {{ $value }}% on {{ $labels.mountpoint }} - immediate action required"
+
+      # Load Average Alerts
+      - alert: HighLoadAverage
+        expr: node_load15 / on(instance) group_left count by (instance)(node_cpu_seconds_total{mode="idle"}) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+          category: infrastructure
+        annotations:
+          summary: "High load average on {{ $labels.instance }}"
+          description: "15-minute load average is {{ $value }} (above 1.5x CPU cores)"
+
+  # Docker Container Alerts
+  - name: docker.rules
+    rules:
+      - alert: ContainerDown
+        expr: absent(container_last_seen{name!=""})
+        for: 1m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "Container {{ $labels.name }} is down"
+          description: "Container {{ $labels.name }} on {{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High CPU usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} CPU usage is {{ $value }}% (above 80%)"
+
+      - alert: ContainerHighMemory
+        expr: (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""}) * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High memory usage in container {{ $labels.name }}"
+          description: "Container {{ $labels.name }} memory usage is {{ $value }}% (above 90%)"
+
+      - alert: ContainerRestartLoop
+        expr: increase(container_start_time_seconds{name!=""}[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "Container {{ $labels.name }} has restarted {{ $value }} times in the last hour"
+
+  # Network and Connectivity Alerts
+  - name: network.rules
+    rules:
+      - alert: HTTPEndpointDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "HTTP endpoint {{ $labels.instance }} is down"
+          description: "HTTP probe failed for {{ $labels.instance }} for more than 2 minutes"
+
+      - alert: DNSResolutionFailure
+        expr: probe_success{job="blackbox-dns"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: network
+        annotations:
+          summary: "DNS resolution failed for {{ $labels.instance }}"
+          description: "DNS server {{ $labels.instance }} is not responding to queries"
+
+      - alert: SSLCertificateExpiry
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 0m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "SSL certificate for {{ $labels.instance }} expires soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+      - alert: SSLCertificateExpiryCritical
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 2
+        for: 0m
+        labels:
+          severity: critical
+          category: network
+        annotations:
+          summary: "SSL certificate for {{ $labels.instance }} expires very soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+      - alert: SlowHTTPResponse
+        expr: probe_http_duration_seconds > 5
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "Slow HTTP response for {{ $labels.instance }}"
+          description: "HTTP response time is {{ $value }}s (above 5s) for {{ $labels.instance }}"
+
+  # Dokploy Application Alerts
+  - name: dokploy.rules
+    rules:
+      - alert: DokployInstanceDown
+        expr: up{job="dokploy"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: application
+        annotations:
+          summary: "Dokploy instance {{ $labels.instance }} is down"
+          description: "Dokploy management interface on {{ $labels.instance }} is not responding"
+
+      - alert: HighApplicationErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: application
+        annotations:
+          summary: "High error rate for {{ $labels.instance }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (above 5%) for {{ $labels.instance }}"
+
+  # Storage and Backup Alerts
+  - name: storage.rules
+    rules:
+      - alert: QNAPStorageDown
+        expr: up{job="qnap"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: storage
+        annotations:
+          summary: "QNAP storage system is unreachable"
+          description: "QNAP NAS {{ $labels.instance }} is not responding"
+
+      - alert: BackupAge
+        expr: time() - node_filesystem_files_total{mountpoint="/mnt/backup"} > 86400 * 2
+        for: 0m
+        labels:
+          severity: warning
+          category: backup
+        annotations:
+          summary: "Backup is outdated on {{ $labels.instance }}"
+          description: "Last backup is more than 2 days old"
+
+  # Internet Connectivity Alerts
+  - name: internet.rules
+    rules:
+      - alert: InternetConnectivityLoss
+        expr: probe_success{instance="1.1.1.1:53"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: network
+        annotations:
+          summary: "Internet connectivity lost"
+          description: "Unable to reach external DNS servers - internet connection may be down"
+
+      - alert: SlowInternetSpeed
+        expr: speedtest_download_mbps < 50  # Adjust threshold as needed
+        for: 0m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "Internet speed is below expected"
+          description: "Download speed is {{ $value }}Mbps (below 50Mbps threshold)"
+
+  # Temperature and Hardware Alerts (if available)
+  - name: hardware.rules
+    rules:
+      - alert: HighTemperature
+        expr: node_hwmon_temp_celsius > 75
+        for: 5m
+        labels:
+          severity: warning
+          category: hardware
+        annotations:
+          summary: "High temperature detected on {{ $labels.instance }}"
+          description: "Temperature is {{ $value }}°C (above 75°C) on {{ $labels.chip }}"
+
+      - alert: CriticalTemperature
+        expr: node_hwmon_temp_celsius > 85
+        for: 1m
+        labels:
+          severity: critical
+          category: hardware
+        annotations:
+          summary: "Critical temperature on {{ $labels.instance }}"
+          description: "Temperature is {{ $value }}°C (above 85°C) on {{ $labels.chip }} - immediate cooling required"
